@@ -20,11 +20,16 @@ Math::BigLite:
  * bgcd() and blcm() work now by handing their work to BigInt
  * fixed bneg(), babs() and bnot() to return $x (and not to leave -0)
  * bigintpm.t fails 66/2181 tests
-2002-03-17 v0.06 Tels
+2002-03-15 v0.06 Tels
  * passes all tests, yeah!
- * upgrade_2: handle $class->badd(4,5) style calls
  * tie accuracy/precision/round_mode to BigInt's vars
+ * upgrade_2: handle $class->badd(4,5) style calls
  * assorted fixes all over the place
+2002-03-17 v0.07 Tels
+ * upgrade_2: separate version for mul
+ * stray new() calls to $class->new()
+ * routines now use _upgrade_x() to check params and overflow
+ * round() works now
 
 Please send me test-reports, your experiences with this and your ideas - I love
 to hear about my work!

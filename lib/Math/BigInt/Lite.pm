@@ -17,7 +17,7 @@ use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
 @ISA = qw(Exporter Math::BigInt);
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 ##############################################################################
 # global constants, flags and accessory
@@ -30,9 +30,61 @@ $downgrade = undef;
 
 my $nan = 'NaN';
 
-my $BASE_LEN	= 7;			# 1e7 for now until we calc it dyn.
-my $BASE	= int("1E$BASE_LEN");
-my $HALF_BASE	= int("1E" . int($BASE_LEN/2));
+my $MAX_NEW_LEN;
+my $MAX_MUL;
+my $MAX_ADD;
+
+BEGIN
+  {
+  # from Daniel Pfeiffer: determine largest group of digits that is precisely
+  # multipliable with itself plus carry
+  # Test now changed to expect the proper pattern, not a result off by 1 or 2
+  my ($e, $num) = 3;    # lowest value we will use is 3+1-1 = 3
+  do
+    {
+    $num = ('9' x ++$e) + 0;
+    $num *= $num + 1.0;
+    } while ("$num" =~ /9{$e}0{$e}/);	# must be a certain pattern
+  $e--;					# last test failed, so retract one step
+  # the limits below brush the problems with the test above under the rug:
+  # the test should be able to find the proper $e automatically
+  $e = 5 if $^O =~ /^uts/;	# UTS get's some special treatment
+  $e = 5 if $^O =~ /^unicos/;	# unicos is also problematic (6 seems to work
+				# there, but we play safe)
+  $e = 8 if $e > 8;		# cap, for VMS, OS/390 and other 64 bit systems
+
+  my $bi = $e;
+
+#  # determine how many digits fit into an integer and can be safely added
+#  # together plus carry w/o causing an overflow
+#
+#  # this below detects 15 on a 64 bit system, because after that it becomes
+#  # 1e16  and not 1000000 :/ I can make it detect 18, but then I get a lot of
+#  # test failures. Ugh! (Tomake detect 18: uncomment lines marked with *)
+#  use integer;
+#  my $bi = 5;                   # approx. 16 bit
+#  $num = int('9' x $bi);
+#  # $num = 99999; # *
+#  # while ( ($num+$num+1) eq '1' . '9' x $bi)   # *
+#  while ( int($num+$num+1) eq '1' . '9' x $bi)
+#    {
+#    $bi++; $num = int('9' x $bi);
+#    # $bi++; $num *= 10; $num += 9;     # *
+#    }
+#  $bi--;                                # back off one step
+
+  # we ensure that every number created is below the length for the add, so
+  # that it is always safe to add two objects together
+  $MAX_NEW_LEN = $bi;
+  # The constant below is used to check the result of any add, if above, we
+  # need to upgrade.
+  $MAX_ADD = int("1E$bi");
+  # For mul, we need to check *before* the operation that both operands are
+  # below the number benlow, since otherwise it could overflow.
+  $MAX_MUL = int("1E$e");
+
+ # print "MAX_NEW_LEN $MAX_NEW_LEN MAX_ADD $MAX_ADD MAX_MUL $MAX_MUL\n\n";
+  }
 
 ##############################################################################
 # we tie our accuracy/precision/round_mode to BigInt, so that setting it here
@@ -141,9 +193,35 @@ sub precision
 use overload
 '+'     =>
  sub 
-  { 
-  my $a = ${$_[0]}; my $t = \$a; bless $t, $class;	# inline copy()
-  badd($t,$_[1]);   
+  {
+  my $x = $_[0];
+  my $s = $_[1]; $s = $class->new($s) unless ref($s);
+  if ($s->isa($class))
+    {
+    $x = \($$x + $$s); bless $x,$class;		# inline copy
+    $upgrade->new($$x) if abs($$x) >= $MAX_ADD;
+    }
+  else
+    {
+    $x = $upgrade->new($$x)->badd($s);
+    }
+  $x;
+  }, 
+
+'*'     =>
+ sub 
+  {
+  my $x = $_[0];
+  my $s = $_[1]; $s = $class->new($s) unless ref($s);
+  if ($s->isa($class))
+    {
+    $x = \($$x * $$s); $$x = 0 if $$x eq '-0';	# correct 5.x.x bug
+    bless $x,$class;		# inline copy
+    }
+  else
+    {
+    $x = $upgrade->new(${$_[0]})->bmul($s);
+    }
   }, 
 
 # some shortcuts for speed (assumes that reversed order of arguments is routed
@@ -151,7 +229,7 @@ use overload
 # this breaks and must be adjusted.)
 #'/='    =>      sub { scalar $_[0]->bdiv($_[1]); },
 #'*='    =>      sub { $_[0]->bmul($_[1]); },
-#'+='    =>      sub { $_[0]->badd($_[1]); },
+#'+='    =>       sub { $_[0]->badd($_[1]); },
 #'-='    =>      sub { $_[0]->bsub($_[1]); },
 #'%='    =>      sub { $_[0]->bmod($_[1]); },
 #'&='    =>      sub { $_[0]->band($_[1]); },
@@ -166,12 +244,12 @@ use overload
 
 '++'    =>      sub { 
   ${$_[0]}++; 
-  return $upgrade->new(${$_[0]}) if ${$_[0]} > $BASE; 
+  return $upgrade->new(${$_[0]}) if ${$_[0]} >= $MAX_ADD; 
   $_[0];
   },
 '--'    =>      sub { 
   ${$_[0]}--; 
-  return $upgrade->new(${$_[0]}) if ${$_[0]} < -$BASE; 
+  return $upgrade->new(${$_[0]}) if ${$_[0]} <= -$MAX_ADD; 
   $_[0];
   }
  ;
@@ -185,7 +263,7 @@ sub bgcd
   {
   if (@_ == 1)		# bgcd (8) == bgcd(8,0) == 8
     {
-    my $x = shift; $x = new($x) unless ref($x);
+    my $x = shift; $x = $class->new($x) unless ref($x);
     return $x;
     }
 
@@ -225,12 +303,26 @@ sub new
 
   return $upgrade->new($wanted) if !defined $wanted;
 
+  print "new\n";
   # 1e12, NaN, inf, 0x12, 0b11, 1.2e2, "12345678901234567890" etc all upgrade 
-  if (!ref($wanted) && ($wanted =~ /^[+-]?[0-9]{1,$BASE_LEN}(\.0*)?$/))
+  if (!ref($wanted))
     {
-    my $a = \($wanted+0);	# +0 to make a copy and force it numeric
+    if ((length($wanted) <= $MAX_NEW_LEN) && 
+        ($wanted =~ /^[+-]?[0-9]{1,$MAX_NEW_LEN}(\.0*)?$/))
+      {
+      my $a = \($wanted+0);	# +0 to make a copy and force it numeric
+      return bless $a, $class;
+      }
+    # TODO: 1e10 style constants that are still below MAX_NEW
+    if ($wanted =~ /^([+-])?([0-9]+)[eE][+]?([0-9]+)$/)
+      {
+      if ((length($2) + $3) < $MAX_NEW_LEN)
+        {
+        my $a = \($wanted+0);	# +0 to make a copy and force it numeric
+        return bless $a, $class;
+        }
+      } 
 #    print "new '$$a' $BASE_LEN ($wanted)\n";
-    return bless $a, $class;
     }
   $upgrade->new($wanted,@r);
   }
@@ -269,6 +361,39 @@ sub _upgrade_2
   # when it detects that:
   # * one or both of the argument(s) is/are BigInt, 
   # * global A or P are set
+  # Input arguments: x,y,a,p,r
+  # Output: flag (1: need to upgrade, 0: need not),x,y,$a,$p,$r
+
+  # Math::BigInt::Lite->badd(1,2) style calls
+  shift if !ref($_[0]) && $_[0] =~ /^Math::BigInt::Lite/;
+
+  my ($x,$y,$a,$p,$r) = @_;
+
+  my $up = 0;	# default: don't upgrade
+
+  $up = 1
+   if (defined $a || defined $p || defined $accuracy || defined $precision);
+  $x = __PACKAGE__->new($x) unless ref $x;	# upgrade literals
+  $y = __PACKAGE__->new($y) unless ref $y;	# upgrade literals
+  $up = 1 unless $x->isa($class) && $y->isa($class);
+  # no need to check for overflow for add/sub/div/mod math
+  if ($up == 1)
+    {
+    $x = $upgrade->new($$x) if $x->isa($class);
+    $y = $upgrade->new($$y) if $y->isa($class);
+    }
+  print "upgrade ",($up,$x,$y),"\n";
+
+  ($up,$x,$y,$a,$p,$r);
+  }
+
+sub _upgrade_2_mul
+  {
+  # This takes the two possible arguments, and checks them. It uses new() to
+  # convert literals to objects first. Then it upgrades the operation
+  # when it detects that:
+  # * one or both of the argument(s) is/are BigInt, 
+  # * global A or P are set
   # * One of the arguments is too large for the operation 
   # Input arguments: x,y,a,p,r
   # Output: flag (1: need to upgrade, 0: need not),x,y,$a,$p,$r
@@ -284,8 +409,8 @@ sub _upgrade_2
    if (defined $a || defined $p || defined $accuracy || defined $precision);
   $x = __PACKAGE__->new($x) unless ref $x;	# upgrade literals
   $y = __PACKAGE__->new($y) unless ref $y;	# upgrade literals
-  $up = 1 if $x->isa('Math::BigInt') || $y->isa('Math::BigInt');
-  $up = 1 if ($up == 0 && (abs($$x) > $BASE || abs($$y) > $BASE) );
+  $up = 1 unless $x->isa($class) && $y->isa($class);
+  $up = 1 if ($up == 0 && (abs($$x) >= $MAX_MUL || abs($$y) >= $MAX_MUL) );
   if ($up == 1)
     {
     $x = $upgrade->new($$x) if $x->isa($class);
@@ -300,7 +425,6 @@ sub _upgrade_1
   # convert a literal to an object first. Then it checks for a necc. upgrade:
   # * the argument is a BigInt
   # * global A or P are set
-  # * the arguments is too large for the operation 
   # Input arguments: x,a,p,r
   # Output: flag (1: need to upgrade, 0: need not), x,$a,$p,$r
   my ($x,$a,$p,$r) = @_;
@@ -309,9 +433,8 @@ sub _upgrade_1
 
   $up = 1
    if (defined $a || defined $p || defined $accuracy || defined $precision);
-  $x = new($x) unless ref $x;	# upgrade literals
-  $up = 1 if $x->isa('Math::BigInt');
-  $up = 1 if ($up == 0 && abs($$x) > $BASE);
+  $x = __PACKAGE_->new($x) unless ref $x;	# upgrade literals
+  $up = 1 unless $x->isa($class);
   if ($up == 1)
     {
     $x = $upgrade->new($$x) if $x->isa($class);
@@ -325,34 +448,35 @@ sub _upgrade_1
 sub bround
   {
   my ($self,$x,$a,$m) = ref($_[0]) ? (ref($_[0]),@_) :
-    ($class,new($_[0]),$_[1],$_[2]);
+    ($class,$class->new($_[0]),$_[1],$_[2]);
 
   #$m = $self->round_mode() if !defined $m;
   #$a = $self->accuracy() if !defined $a;
 
-  $a = $upgrade->new($$a) if $a->isa($class);	# BigInt can't cope w/ this
-
-#  print "bround $x (",ref($x),") $a $m\n";
-#  print "new ",$upgrade->new($$x),"\n";
   $x = $upgrade->new($$x) if $x->isa($class);
-#  print "$x (",ref($x),") $a (",ref($a),") $m\n";
   $x->bround($a,$m);
   }
 
 sub bfround
   {
   my ($self,$x,$p,$m) = ref($_[0]) ? (ref($_[0]),@_) :
-    ($class,new($_[0]),$_[1],$_[2]);
+    ($class,$class->new($_[0]),$_[1],$_[2]);
 
   #$m = $self->round_mode() if !defined $m;
   #$p = $self->precision() if !defined $p;
 
-  $p = $upgrade->new($$p) if $p->isa($class);	# BigInt can't cope w/ this
-
-#  print "bfround $x $a $m\n";
   $x = $upgrade->new($$x) if $x->isa($class);
   $x->bfround($p,$m);
 
+  }
+
+sub round
+  {
+  my ($self,$x,$a,$p,$r) = ref($_[0]) ? (ref($_[0]),@_) : 
+    ($class,$class->new(@_),$_[0],$_[1],$_[2]);
+
+  $x = $upgrade->new($$x) if $x->isa($class);
+  $x->round($a,$p,$r);
   }
 
 ##############################################################################
@@ -363,9 +487,7 @@ sub bnan
   # return a bnan or set object to NaN
   my $x = shift;
   
-  $upgrade->bnan(); # if ref $x;
-#  return $upgrade->new($$x)->bnan(@_) if ref $x;
-#  $upgrade->bnan($x,@_);
+  $upgrade->bnan();
   }
 
 sub binf
@@ -373,7 +495,7 @@ sub binf
   # return a binf
   my $x = shift;
 
-  return $upgrade->new($$x)->binf(@_) if ref $x;
+#  return $upgrade->new($$x)->binf(@_) if ref $x;
   $upgrade->binf(@_);				# binf(1,'-') form
   }
 
@@ -381,11 +503,11 @@ sub bone
   {
   # return a one
   my $x = shift;
-  
-  return $x->bone(@_) unless ref $x;		# Class->bone();
-  #return $x->bone(@_) unless $x->isa($class);	# should not happen
+ 
+  my $sign = '+'; $sign = '-' if ($_[0] ||'') eq '-';
+  return $x->new($sign.'1') unless ref $x;		# Class->bone();
   $$x = 1;
-  $$x = -1 if $_[0] eq '-';
+  $$x = -1 if $sign eq '-';
   $x;
   }
 
@@ -394,9 +516,10 @@ sub bzero
   # return a one
   my $x = shift;
 
-  return $x->bone(@_) unless ref $x;		# Class->bone();
+  return $x->new(0) unless ref $x;		# Class->bone();
   #return $x->bzero() unless $x->isa($class);	# should not happen
   $$x = 0;
+  $x;
   }
 
 sub bcmp
@@ -436,24 +559,24 @@ sub bacmp
 sub copy
   {
   my $x = shift;
-  return Math::BigInt::Lite->new($x) if !ref $x;
+  return $class->new($x) if !ref $x;
 
   my $a = $$x; my $t = \$a; bless $t, $class;
   }
 
 sub as_number
   {
-  # my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,new(@_));
-  my ($x) = ref($_[0]) ? ($_[0]) : (new(@_));
+  my ($x) = shift;
 
-  # as_number returns a BigInt, but since we pass as BigInt, just make a copy
-  #return $upgrade->new($$x) if $x->isa($class);
+  return $upgrade->new($x) unless ref($x);
+  # as_number needs to return a BigInt
+  return $upgrade->new($$x) if $x->isa($class);
   $x->copy();
   }
 
 sub numify
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,new(@_));
+  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,$class->new(@_));
 
   return $$x if $x->isa($class);
   $x->numify();
@@ -461,7 +584,7 @@ sub numify
 
 sub as_hex
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,new(@_));
+  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,$class->new(@_));
 
   return $upgrade->new($$x)->as_hex() if $x->isa($class);
   $x->as_hex();
@@ -469,7 +592,7 @@ sub as_hex
 
 sub as_bin
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,new(@_));
+  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : ($class,$class->new(@_));
 
   return $upgrade->new($$x)->as_bin() if $x->isa($class);
   $x->as_bin();
@@ -481,20 +604,22 @@ sub as_bin
 sub binc
   {
   # increment by one
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($up,$x,$y,$a,$p,$r) = _upgrade_1(@_);
 
-  return $x->binc() unless $x->isa($class);
+  return $x->binc($a,$p,$r) if $up;
   $$x++;
+  return $upgrade->new($$x) if abs($$x) > $MAX_ADD;
   $x;
   }
 
 sub bdec
   {
-  # increment by one
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  # decrement by one
+  my ($up,$x,$y,$a,$p,$r) = _upgrade_1(@_);
 
-  return $x->bdec() unless $x->isa($class);
+  return $x->bdec($a,$p,$r) if $up;
   $$x--;
+  return $upgrade->new($$x) if abs($$x) > $MAX_ADD;
   $x;
   }
 
@@ -605,6 +730,7 @@ sub badd
   return $x->badd($y,$a,$p,$r) if $up;
   
   $$x = $$x + $$y;
+  return $upgrade->new($$x) if abs($$x) > $MAX_ADD;
   $x;
   }
 
@@ -614,31 +740,27 @@ sub bsub
   my ($up,$x,$y,$a,$p,$r) = _upgrade_2(@_);
   return $x->bsub($y,$a,$p,$r) if $up;
   $$x = $$x - $$y;
+  return $upgrade->new($$x) if abs($$x) > $MAX_ADD;
   $x;
   }
 
 sub bmul
   {
   # multiply two objects
-  my ($up,$x,$y,$a,$p,$r) = _upgrade_2(@_);
+  my ($up,$x,$y,$a,$p,$r) = _upgrade_2_mul(@_);
   return $x->bmul($y,$a,$p,$r) if $up;
   $$x = $$x * $$y;
   $$x = 0 if $$x eq '-0';	# for some Perls leave '-0' here
+  #return $upgrade->new($$x) if abs($$x) > $MAX_ADD;
   $x;
   }
 
 sub bmod
   {
   # remainder of div
-  my ($x,$y,$a,$p,$r) = @_; # objectify(2,@_);
-
-  $x = $class->new($x) unless ref($x);
-  $y = $class->new($x) unless ref($y);
-  
-  return $x->bmul($y,$a,$p,$r) unless $x->isa($class);
-  return $upgrade->new($$x)->bmod($y,$a,$p,$r) unless $y->isa($class);
-  return $upgrade->new($$x)->bmod($upgrade->new($$y),$a,$p,$r) if $$y == 0;
-  
+  my ($up,$x,$y,$a,$p,$r) = _upgrade_2(@_);
+  return $x->bmod($y,$a,$p,$r) if $up;
+  return $upgrade->new($$x)->bmod($y,$a,$p,$r) if $$y == 0;
   $$x = $$x % $$y;
   $x;
   }
@@ -646,26 +768,19 @@ sub bmod
 sub bdiv
   {
   # divide two objects
-  my ($x,$y,$a,$p,$r) = @_; # objectify(2,@_);
+  my ($up,$x,$y,$a,$p,$r) = _upgrade_2(@_);
   
-  $x = $class->new($x) unless ref($x);
-  $y = $class->new($x) unless ref($y);
+  return $x->bdiv($y,$a,$p,$r) if $up;
+
+  return $upgrade->new($$x)->bdiv($y,$a,$p,$r) if $$y == 0;
   
-  return $x->bdiv($y,$a,$p,$r) unless $x->isa($class);
-  return $upgrade->new($$x)->bdiv($y,$a,$p,$r) unless $y->isa($class);
-  
-  return $upgrade->new($$x)->bdiv(0,$a,$p,$r) if $$y == 0;
-  
-  # if the result is non-integer before round/trunc, then upgrade to give
-  # BigInt a chance to upgrade further (BigFloat, BigRat etc)
-  my $t = $$x / $$y;
-  # if (int($t) != $t)
-  if ($$x % $$y != 0)		# can't divide with reminder
+  if (wantarray)
     {
-    return $upgrade->bdiv($upgrade->new($$x),$upgrade->new($$y),$a,$p,$r);
+    my $a = \($$x % $$y); bless $a,$class;	
+    $$x = int($$x / $$y);
+    return ($x,$a);
     }
-  $$x = int($t);
-  return ($x,$class->new(0)) if wantarray;
+  $$x = int($$x / $$y);
   $x;
   }
 
@@ -912,6 +1027,7 @@ sub import
   my $self = shift;
 
   my @a = @_; my $l = scalar @_; my $j = 0;
+  my $lib = '';
   for ( my $i = 0; $i < $l ; $i++,$j++ )
     {
     if ($_[$i] eq ':constant')
@@ -923,8 +1039,15 @@ sub import
     elsif ($_[$i] eq 'upgrade')
       {
       # this causes upgrading
-      $upgrade = $_[$i+1];              # or undef to disable
-      my $s = 2; $s = 1 if @a-$j < 2;   # avoid "can not modify non-existant..."      splice @a, $j, $s; $j -= $s;
+      $upgrade = $_[$i+1];		# or undef to disable
+      my $s = 2; $s = 1 if @a-$j < 2;	# no "can not modify non-existant..."
+      splice @a, $j, $s; $j -= $s;
+      }
+    elsif ($_[$i] eq 'lib')
+      {
+      $lib = $_[$i+1];			# or undef to disable
+      my $s = 2; $s = 1 if @a-$j < 2;   # no "can not modify non-existant..."
+      splice @a, $j, $s; $j -= $s;
       }
     # hand this up to Math::BigInt
 #    elsif ($_[$i] =~ /^lib$/i)
@@ -961,8 +1084,9 @@ Math::BigInt::Lite - What BigInt's are before they become big
 
 =head1 DESCRIPTION
 
-Math::BigInt is not very good suited to calculate with small (read: typical
-less than 10 digits) numbers, since it has a quite high per-operation overhead.
+Math::BigInt is not very good suited to work with small (read: typical
+less than 10 digits) numbers, since it has a quite high per-operation overhead
+and is thus too slow.
 
 But for some simple applications, you don't need rounding, infinity nor NaN
 handling, and yet want fast speed for small numbers without the risk of
@@ -978,7 +1102,7 @@ not feel them, because everytime something gets to big to pass as Lite
 (literally), it will upgrade the objects and operation in question to
 Math::BigInt.
 
-=head2 MATH LIBRARY
+=head2 Math library
 
 Math with the numbers is done (by default) by a module called
 Math::BigInt::Calc. This is equivalent to saying:
@@ -1013,6 +1137,59 @@ you can roll it all into one line:
 	use Math::BigInt::Lite lib => 'GMP';
 
 Use the lib, Luke!
+
+=head2 Using Lite as substitute for Math::BigInt
+
+While Lite is fine when used directly in a script, you also want to make
+other modules such as Math::BigFloat or Math::BigRat using it. Here is how
+(you need a fairly recent version of the aforementioned modules to get this
+to work!):
+
+	# 1
+        use Math::BigFloat with => 'Math::BigInt::Lite';
+
+There is no need to "use Math::BigInt" or "use Math::BigInt::Lite", but you
+can combine these if you want. For instance, you may want to use
+Math::BigInt objects in your main script, too.
+
+	# 2
+	use Math::BigInt;
+	use Math::BigFloat with => 'Math::BigInt::Lite';
+
+Of course, you can combine this with the C<lib> parameter.
+
+	# 3
+	use Math::BigFloat with => 'Math::BigInt::Lite', lib => 'GMP,Pari';
+
+If you want to use Math::BigInt's, too, simple add a Math::BigInt B<before>:
+
+	# 4
+	use Math::BigInt;
+	use Math::BigFloat with => 'Math::BigInt::Lite', lib => 'GMP,Pari';
+
+Notice that the module with the last C<lib> will "win" and thus
+it's lib will be used if the lib is available:
+
+	# 5
+	use Math::BigInt lib => 'Bar,Baz';
+	use Math::BigFloat with => 'Math::BigInt::Lite', lib => 'Foo';
+
+That would try to load Foo, Bar, Baz and Calc (in that order). Or in other
+words, Math::BigFloat will try to retain previously loaded libs when you
+don't specify it one. 
+
+Actually, the lib loading order would be "Bar,Baz,Calc", and then
+"Foo,Bar,Baz,Calc", but independend of which lib exists, the result is the
+same as trying the latter load alone, except for the fact that Bar or Baz
+might be loaded needlessly in an intermidiate step
+
+The old way still works though:
+
+	# 6
+        use Math::BigInt lib => 'Bar,Baz';
+        use Math::BigFloat;
+ 
+But B<examples #3 and #4 are recommended> for usage.
 
 =head1 METHODS
 

@@ -1,9 +1,13 @@
 
 Whats new in this version:
- * passes all tests, yeah!
- * upgrade_2: handle $class->badd(4,5) style calls
- * tie accuracy/precision/round_mode to BigInt's vars
- * assorted fixes all over the place
+ * bmod/bdiv use _upgrade_2 and return now more often Lite instead of BigInt
+ * as_number() returns always BigInt
+ * fixed bone() etc (were returning always BigInt and/or failing)
+ * autodetec how big Lite objects can be (fixes overflow)
+ * added _upgrade_2_mul() 
+ * perl-Mbignum now works under Lite
+ * new() can handle 1e10 style strings
+ * better overload code for +, ++, --,
 
 Please have arbitrarily big amounts of fun.
 
