@@ -17,7 +17,7 @@ use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
 @ISA = qw(Exporter Math::BigInt);
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 ##############################################################################
 # global constants, flags and accessory
@@ -300,8 +300,10 @@ sub blcm
 
 sub isa
   {
-  return 0 if $_[1] eq 'Math::BigInt';			# we aren't a BigInt
-  UNIVERSAL::isa(@_);
+  return 1 if $_[1] =~ /^Math::BigInt::Lite/;		# we aren't a BigInt
+							# nor BigRat/BigFloat
+  return 0;
+#  UNIVERSAL::isa(@_);
   }
 
 sub new
@@ -777,7 +779,11 @@ sub bdiv
   
   return $x->bdiv($y,$a,$p,$r) if $up;
 
-  return $upgrade->new($$x)->bdiv($y,$a,$p,$r) if $$y == 0;
+  return $upgrade->new($$x)->bdiv($$y,$a,$p,$r) if $$y == 0;
+
+  # need to give Math::BigInt a chance to upgrade further
+  return $upgrade->new($$x)->bdiv($$y,$a,$p,$r)
+   if defined $Math::BigInt::upgrade;
   
   if (wantarray)
     {
