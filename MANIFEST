@@ -1,0 +1,13 @@
+CHANGES
+INSTALL
+README
+LICENSE
+MANIFEST
+NEW
+TODO
+BUGS
+Makefile.PL
+lib/Math/BigInt/Lite.pm
+t/lite.t
+t/bigintpm.t
+t/bigintpm.inc

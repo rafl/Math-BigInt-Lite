@@ -1,0 +1,32 @@
+
+Complete version history
+========================
+
+############################################################################## 
+Math::BigLite:
+
+2002-03-05 v0.01 Tels
+ * first release
+2002-03-06 v0.02 Tels
+ * bigintpm.t tests runs trough, but fails 545 tests
+2002-03-06 v0.03 Tels
+ * bigintpm.t fails 313 tests
+2002-03-08 v0.04 Tels
+ * digt/length work now
+ * bigintpm.t fails 118/2166 tests
+2002-03-17 v0.05 Tels
+ * as_number() does no longer upgrade Lite's to BigInt
+ * fixed a bug in mul
+ * bgcd() and blcm() work now by handing their work to BigInt
+ * fixed bneg(), babs() and bnot() to return $x (and not to leave -0)
+ * bigintpm.t fails 66/2181 tests
+2002-03-17 v0.06 Tels
+ * passes all tests, yeah!
+ * upgrade_2: handle $class->badd(4,5) style calls
+ * tie accuracy/precision/round_mode to BigInt's vars
+ * assorted fixes all over the place
+
+Please send me test-reports, your experiences with this and your ideas - I love
+to hear about my work!
+
+Tels <http://bloodgate.com/>

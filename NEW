@@ -1,0 +1,11 @@
+
+Whats new in this version:
+ * passes all tests, yeah!
+ * upgrade_2: handle $class->badd(4,5) style calls
+ * tie accuracy/precision/round_mode to BigInt's vars
+ * assorted fixes all over the place
+
+Please have arbitrarily big amounts of fun.
+
+Tels <http://bloodgate.com/perl>
+
