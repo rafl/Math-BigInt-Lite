@@ -34,6 +34,14 @@ Math::BigLite:
  * config() was missing
  * fixed isa() (we arent a BigInt, nor a BigFloat nor a BigRat)
  * ficed bdiv() to upgrade when Math::BigInt upgrade is set
+2002-0?-?? v0.09 Tels
+ * ?
+2002-06-05 v0.10 Tels
+ * fixed bug in bfac() that appeared with BigInt v1.57
+ * export_ok objectify for "use Math::BigFloat with => 'Math::BigInt::Lite'"
+ * fake HASH read accesses to sign (Math::BigInt::Lite->new(12)->{sign} works)
+   (Thanx to Benjamin Goldstein for the trick!)
+ * test that Math::BigFloat with Math::BigInt::Lite really works
 
 Please send me test-reports, your experiences with this and your ideas - I love
 to hear about my work!

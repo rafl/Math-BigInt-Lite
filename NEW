@@ -1,6 +1,9 @@
 
 Whats new in this version:
- * config() was missing (has now additional version_lite entry and 2 tests)
+ * require MBI 1.57
+ * bug in bfac()
+ * export_ok objectify for Math::BigFloat with => 'Math::BigInt::Lite'
+ * read access to {sign} as in Math::BigInt::Lite->new(12)->{sign} works now
 
 Please have arbitrarily big amounts of fun.
 

@@ -8,7 +8,7 @@ BEGIN
   $| = 1;
   chdir 't' if -d 't';
   unshift @INC, '../lib'; # for running manually
-  plan tests => 94;
+  plan tests => 97;
   }
 
 use Math::BigInt::Lite;
@@ -93,6 +93,14 @@ $x = Math::BigInt::Lite->new(123456);
 ok ($x->copy()->round(3),123000);
 ok ($x->copy()->bround(3),123000);
 ok ($x->copy()->bfround(3),123000);
+
+###############################################################################
+# check faking of HASH-like acccess
+
+$x = Math::BigInt::Lite->new(123); ok ($x->{sign},'+');
+$x = Math::BigInt::Lite->new(0); ok ($x->{sign},'+');
+$x = Math::BigInt::Lite->new(-123); ok ($x->{sign},'-');
+
 
 # done
 

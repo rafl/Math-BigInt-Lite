@@ -6,7 +6,7 @@
 
 package Math::BigInt::Lite;
 
-require 5.005_02;
+require 5.005_03;
 use strict;
 
 use Exporter;
@@ -15,9 +15,10 @@ use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
             $accuracy $precision $round_mode $div_scale);
 
 @ISA = qw(Exporter Math::BigInt);
+@EXPORT_OK = qw/objectify/;
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 ##############################################################################
 # global constants, flags and accessory
@@ -251,7 +252,15 @@ use overload
   ${$_[0]}--; 
   return $upgrade->new(${$_[0]}) if ${$_[0]} <= -$MAX_ADD; 
   $_[0];
-  }
+  },
+# fake HASH reference, so that Math::BigInt::Lite->new(123)->{sign} works
+'%{}' => sub {
+   my $self = shift;
+   my $sign = '+'; $sign = '-' if $self < 0;
+   return {
+     sign => $sign,
+     };
+   },
  ;
 
 BEGIN
@@ -989,6 +998,7 @@ sub bfac
   my ($self,$x,$a,$p,$r) = ref($_[0]) ? (ref($_[0]),@_) :
     ($class,$class->new($_[0]),$_[1],$_[2],$_[3],$_[4]);
 
+  $x = $upgrade->new($$x) if $x->isa($class);
   $upgrade->bfac($x,$a,$p,$r);
   }
 
