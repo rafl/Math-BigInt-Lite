@@ -2,6 +2,8 @@
 
 my $version = ${"$class\::VERSION"};
 
+use strict;
+
 ##############################################################################
 # for testing inheritance of _swap
 
@@ -40,7 +42,7 @@ my ($f,$z,$a,$exp,@a,$m,$e,$round_mode,$expected_class);
 
 while (<DATA>) 
   {
-  chop;
+  chomp;
   next if /^#/;	# skip comments
   if (s/^&//) 
     {
@@ -63,22 +65,18 @@ while (<DATA>)
     $try = "\$x = $class->bnorm(\"$args[0]\");";
   # some is_xxx tests
    } elsif ($f =~ /^is_(zero|one|odd|even|negative|positive|nan|int)$/) {
-    $try .= "\$x->$f();";
-   } elsif ($f eq "as_hex") {
-    $try .= '$x->as_hex();';
-   } elsif ($f eq "as_bin") {
-    $try .= '$x->as_bin();';
+    $try .= "\$x->$f() || 0;";
    } elsif ($f eq "is_inf") {
     $try .= "\$x->is_inf('$args[1]');";
    } elsif ($f eq "binf") {
     $try .= "\$x->binf('$args[1]');";
    } elsif ($f eq "bone") {
     $try .= "\$x->bone('$args[1]');";
-   # some unary ops
+  # some unary ops
    } elsif ($f =~ /^b(nan|floor|ceil|sstr|neg|abs|inc|dec|not|sqrt|fac)$/) {
     $try .= "\$x->$f();";
-   } elsif ($f eq "length") {
-    $try .= '$x->length();';
+   } elsif ($f =~ /^(numify|length|stringify|as_hex|as_bin)$/) {
+    $try .= "\$x->$f();";
    } elsif ($f eq "exponent"){
     # ->bstr() to see if an object is returned
     $try .= '$x = $x->exponent()->bstr();';
@@ -92,6 +90,7 @@ while (<DATA>)
     $try .= '$e = $e->bstr(); $e = "NaN" if !defined $e;';
     $try .= '"$m,$e";';
    } else {
+    # binary ops
     $try .= "\$y = $class->new('$args[1]');";
     if ($f eq "bcmp")
       {
@@ -155,6 +154,10 @@ while (<DATA>)
           {
           $try .= "\$x >> \$y;";
           }
+      }elsif ($f eq "broot"){
+        $try .= "\$x->broot(\$y);";
+      }elsif ($f eq "blog"){
+        $try .= "\$x->blog(\$y);";
       }elsif ($f eq "band"){
         $try .= "\$x & \$y;";
       }elsif ($f eq "bior"){
@@ -163,9 +166,18 @@ while (<DATA>)
         $try .= "\$x ^ \$y;";
       }elsif ($f eq "bpow"){
         $try .= "\$x ** \$y;";
+      } elsif( $f eq "bmodinv") {
+       $try .= "\$x->bmodinv(\$y);";
       }elsif ($f eq "digit"){
         $try .= "\$x->digit(\$y);";
-      } else { warn "Unknown op '$f'"; }
+      } else {
+       $try .= "\$z = $class->new(\"$args[2]\");";
+
+       # Functions with three arguments
+       if( $f eq "bmodpow") {
+         $try .= "\$x->bmodpow(\$y,\$z);";
+       } else { warn "Unknown op '$f'"; }
+      }
     } # end else all other ops
 
   $ans1 = eval $try;
@@ -208,6 +220,7 @@ $try .= '$a = $x->bpow($x);';
 $ans1 = eval $try;
 print "# Tried: '$try'\n" if !ok ($ans1, $class->new(10) ** 10);
 
+###############################################################################
 # test whether op destroys args or not (should better not)
 
 $x = $class->new(3);
@@ -240,6 +253,36 @@ ok ($x, -5);
 $x = $class->new(-5); $y = abs($x);
 ok ($x, -5);
 
+$x = $class->new(8);
+$y = $class->new(-1);
+$z = $class->new(5033);
+my $u = $x->copy()->bmodpow($y,$z);
+ok ($u,4404);
+ok ($y,-1);
+ok ($z,5033);
+
+$x = $class->new(-5); $y = -$x; ok ($x,-5); ok ($y,5);
+$x = $class->new(-5); $y = $x->copy()->bneg(); ok ($x,-5); ok ($y,5);
+
+$x = $class->new(-5); $y = $class->new(3); $x->bmul($y); ok ($x,-15); ok ($y,3);
+$x = $class->new(-5); $y = $class->new(3); $x->badd($y); ok ($x,-2); ok ($y,3);
+$x = $class->new(-5); $y = $class->new(3); $x->bsub($y); ok ($x,-8); ok ($y,3);
+$x = $class->new(-15); $y = $class->new(3); $x->bdiv($y); ok ($x,-5); ok ($y,3);
+$x = $class->new(-5); $y = $class->new(3); $x->bmod($y); ok ($x,1); ok ($y,3);
+
+$x = $class->new(5); $y = $class->new(3); $x->bmul($y); ok ($x,15); ok ($y,3);
+$x = $class->new(5); $y = $class->new(3); $x->badd($y); ok ($x,8); ok ($y,3);
+$x = $class->new(5); $y = $class->new(3); $x->bsub($y); ok ($x,2); ok ($y,3);
+$x = $class->new(15); $y = $class->new(3); $x->bdiv($y); ok ($x,5); ok ($y,3);
+$x = $class->new(5); $y = $class->new(3); $x->bmod($y); ok ($x,2); ok ($y,3);
+
+$x = $class->new(5); $y = $class->new(-3); $x->bmul($y); ok ($x,-15); ok($y,-3);
+$x = $class->new(5); $y = $class->new(-3); $x->badd($y); ok ($x,2); ok($y,-3);
+$x = $class->new(5); $y = $class->new(-3); $x->bsub($y); ok ($x,8); ok($y,-3);
+$x = $class->new(15); $y = $class->new(-3); $x->bdiv($y); ok ($x,-5); ok($y,-3);
+$x = $class->new(5); $y = $class->new(-3); $x->bmod($y); ok ($x,-1); ok($y,-3);
+
+###############################################################################
 # check whether overloading cmp works
 $try = "\$x = $class->new(0);";
 $try .= "\$y = 10;";
@@ -303,8 +346,8 @@ print "# For '$try'\n" if (!ok "$ans" , "ok" );
 ###############################################################################
 # bool
 
-$x = Math::BigInt->new(1); if ($x) { ok (1,1); } else { ok($x,'to be true') }
-$x = Math::BigInt->new(0); if (!$x) { ok (1,1); } else { ok($x,'to be false') }
+$x = $class->new(1); if ($x) { ok (1,1); } else { ok($x,'to be true') }
+$x = $class->new(0); if (!$x) { ok (1,1); } else { ok($x,'to be false') }
 
 ###############################################################################
 # objectify()
@@ -338,10 +381,46 @@ ok ($args[4],7); ok (ref($args[4]),'');
 @args = Math::BigInt::objectify(2,$class,4,5,6,7);
 ok (scalar @args,5);		# $class, 4, 5, 6, 7
 ok ($args[0],$class);
-ok ($args[1],4); ok (ref($args[1]),$class);
-ok ($args[2],5); ok (ref($args[2]),$class);
+ok ($args[1],4); ok (ref($args[1]),$args[0]);
+ok ($args[2],5); ok (ref($args[2]),$args[0]);
 ok ($args[3],6); ok (ref($args[3]),'');
 ok ($args[4],7); ok (ref($args[4]),'');
+
+###############################################################################
+# test whether an opp calls objectify properly or not (or at least does what
+# it should do given non-objects, w/ or w/o objectify())
+
+ok ($class->new(123)->badd(123),246);
+ok ($class->badd(123,321),444);
+ok ($class->badd(123,$class->new(321)),444);
+
+ok ($class->new(123)->bsub(122),1);
+ok ($class->bsub(321,123),198);
+ok ($class->bsub(321,$class->new(123)),198);
+
+ok ($class->new(123)->bmul(123),15129);
+ok ($class->bmul(123,123),15129);
+ok ($class->bmul(123,$class->new(123)),15129);
+
+ok ($class->new(15129)->bdiv(123),123);
+ok ($class->bdiv(15129,123),123);
+ok ($class->bdiv(15129,$class->new(123)),123);
+
+ok ($class->new(15131)->bmod(123),2);
+ok ($class->bmod(15131,123),2);
+ok ($class->bmod(15131,$class->new(123)),2);
+
+ok ($class->new(2)->bpow(16),65536);
+ok ($class->bpow(2,16),65536);
+ok ($class->bpow(2,$class->new(16)),65536);
+
+ok ($class->new(2**15)->brsft(1),2**14);
+ok ($class->brsft(2**15,1),2**14);
+ok ($class->brsft(2**15,$class->new(1)),2**14);
+
+ok ($class->new(2**13)->blsft(1),2**14);
+ok ($class->blsft(2**13,1),2**14);
+ok ($class->blsft(2**13,$class->new(1)),2**14);
 
 ###############################################################################
 # test for floating-point input (other tests in bnorm() below)
@@ -352,6 +431,29 @@ $z = 1e+129;			# definitely a float (may fail on UTS)
 # don't compare to $z, since some Perl versions stringify $z into something
 # like '1.e+129' or something equally ugly
 $x = $class->new($z); ok ($x->bsstr(),'1e+129');
+
+###############################################################################
+# test for whitespace inlcuding newlines to be handled correctly
+
+# ok ($Math::BigInt::strict,1);		# the default
+
+foreach my $c (
+  qw/1 12 123 1234 12345 123456 1234567 12345678 123456789 1234567890/)
+  {
+  my $m = $class->new($c);
+  ok ($class->new("$c"),$m);
+  ok ($class->new(" $c"),$m);
+  ok ($class->new("$c "),$m);
+  ok ($class->new(" $c "),$m);
+  ok ($class->new("\n$c"),$m);
+  ok ($class->new("$c\n"),$m);
+  ok ($class->new("\n$c\n"),$m);
+  ok ($class->new(" \n$c\n"),$m);
+  ok ($class->new(" \n$c \n"),$m);
+  ok ($class->new(" \n$c\n "),$m);
+  ok ($class->new(" \n$c\n1"),'NaN');
+  ok ($class->new("1 \n$c\n1"),'NaN');
+  }
 
 ###############################################################################
 # prime number tests, also test for **= and length()
@@ -405,9 +507,10 @@ $x = $class->new('+inf'); ok ($x,'inf');
 
 ###############################################################################
 ###############################################################################
-# the followin tests only make sense with Math::BigInt::Calc or BareCalc
+# the followin tests only make sense with Math::BigInt::Calc or BareCalc or
+# FastCalc
 
-exit if $CALC !~ /^Math::BigInt::(Calc|BareCalc)$/; # for Pari et al.
+exit if $CALC !~ /^Math::BigInt::(|Bare|Fast)Calc$/; # for Pari et al.
 
 ###############################################################################
 # check proper length of internal arrays
@@ -477,15 +580,14 @@ ok ($x, 23456);
  ok ($x,$y);
 
 
-###############################################################################
-# see if mul shortcut for small numbers works
+  #############################################################################
+  # see if mul shortcut for small numbers works
 
-$x = '9' x $bl;
-$x = $class->new($x); 
-# 999 * 999 => 998 . 001, 9999*9999 => 9998 . 0001
-ok ($x*$x, '9' x ($bl-1) . '8' . '0' x ($bl-1) . '1');
-
- }
+  $x = '9' x $bl;
+  $x = $class->new($x); 
+  # 999 * 999 => 998 . 001, 9999*9999 => 9998 . 0001
+  ok ($x*$x, '9' x ($bl-1) . '8' . '0' x ($bl-1) . '1');
+}
 
 ###############################################################################
 # bug with rest "-0" in div, causing further div()s to fail
@@ -493,6 +595,12 @@ ok ($x*$x, '9' x ($bl-1) . '8' . '0' x ($bl-1) . '1');
 $x = $class->new('-322056000'); ($x,$y) = $x->bdiv('-12882240');
 
 ok ($y,'0'); is_valid($y);	# $y not '-0'
+
+###############################################################################
+# bug in $x->bmod($y)
+
+# if $x < 0 and $y > 0
+$x = $class->new('-629'); ok ($x->bmod(5033),4404);
 
 ###############################################################################
 # bone/binf etc as plain calls (Lite failed them)
@@ -506,6 +614,14 @@ ok ($class->binf(),'inf');
 ok ($class->binf('+'),'inf');
 ok ($class->binf('-'),'-inf');
 ok ($class->binf('-inf'),'-inf');
+
+###############################################################################
+# is_one('-')
+
+ok ($class->new(1)->is_one('-'),0);
+ok ($class->new(-1)->is_one('-'),1);
+ok ($class->new(1)->is_one(),1);
+ok ($class->new(-1)->is_one(),0);
 
 ###############################################################################
 # all tests done
@@ -569,6 +685,7 @@ __DATA__
 &%=
 100:3:1
 8:9:8
+-629:5033:4404
 &/=
 100:3:33
 -8:2:-4
@@ -578,6 +695,51 @@ __DATA__
 5:7:5
 &^=
 5:7:2
+&blog
+NaNlog:2:NaN
+122:NaNlog:NaN
+NaNlog1:NaNlog:NaN
+122:inf:NaN
+inf:122:NaN
+122:-inf:NaN
+-inf:122:NaN
+-inf:-inf:NaN
+inf:inf:NaN
+0:4:NaN
+-21:4:NaN
+21:-21:NaN
+# normal results
+1024:2:10
+81:3:4
+# 3.01.. truncate
+82:3:4
+# 3.9... truncate
+80:3:3
+15625:5:6
+15626:5:6
+15624:5:5
+1000:10:3
+10000:10:4
+100000:10:5
+1000000:10:6
+10000000:10:7
+100000000:10:8
+8916100448256:12:12
+8916100448257:12:12
+8916100448255:12:11
+2251799813685248:8:17
+72057594037927936:2:56
+144115188075855872:2:57
+288230376151711744:2:58
+576460752303423488:2:59
+4096:2:12
+1329227995784915872903807060280344576:2:120
+# $x == $base => result 1
+3:3:1
+# $x < $base => result 0 ($base ** 0 <= $x)
+3:4:0
+# $x == 1 => result 0
+1:5:0
 &is_negative
 0:0
 -1:1
@@ -654,6 +816,10 @@ NaN:inf:
 -inf:NaN:
 NaN:-inf:
 &bnorm
+0e999:0
+0e-999:0
+-0e999:0
+-0e-999:0
 123:123
 # binary input
 0babc:NaN
@@ -779,6 +945,21 @@ E23:NaN
 1e2e3:NaN
 1e2r:NaN
 1e2.0:NaN
+# bug with two '.' in number beeing valid
+1.2.2:NaN
+1.2.3e1:NaN
+-1.2.3:NaN
+-1.2.3e-4:NaN
+1.2e3.4:NaN
+1.2e-3.4:NaN
+1.2.3.4:NaN
+1.2.t:NaN
+1..2:NaN
+1..2e1:NaN
+1..2e1..1:NaN
+12e1..1:NaN
+..2:NaN
+.-2:NaN
 # leading zeros
 012:12
 0123:123
@@ -925,10 +1106,22 @@ abc:abc:NaN
 -820265627:1:2:-410132814
 -205066405:1:2:-102533203
 &bsstr
++inf:inf
+-inf:-inf
 1e+34:1e+34
 123.456E3:123456e+0
 100:1e+2
-abc:NaN
+bsstrabc:NaN
+-5:-5e+0
+-100:-1e+2
+&numify
+numifyabc:NaN
++inf:inf
+-inf:-inf
+5:5
+-5:-5
+100:100
+-100:-100
 &bneg
 bnegNaN:NaN
 +inf:-inf
@@ -1232,6 +1425,16 @@ inf:0:inf,inf
 -8:0:-inf,-8
 -inf:0:-inf,-inf
 0:0:NaN,NaN
+# test the shortcut in Calc if @$x == @$yorg
+1234567812345678:123456712345678:10,688888898
+12345671234567:1234561234567:10,58888897
+123456123456:12345123456:10,4888896
+1234512345:123412345:10,388895
+1234567890999999999:1234567890:1000000000,999999999
+1234567890000000000:1234567890:1000000000,0
+1234567890999999999:9876543210:124999998,9503086419
+1234567890000000000:9876543210:124999998,8503086420
+96969696969696969696969696969678787878626262626262626262626262:484848484848484848484848486666666666666689898989898989898989:199,484848484848484848484848123012121211954972727272727272727451
 &bdiv
 abc:abc:NaN
 abc:1:NaN
@@ -1311,6 +1514,63 @@ inf:0:inf
 14:3:4
 # bug in Calc with '99999' vs $BASE-1
 10000000000000000000000000000000000000000000000000000000000000000000000000000000000:10000000375084540248994272022843165711074:999999962491547381984643365663244474111576
+# test the shortcut in Calc if @$x == @$yorg
+1234567812345678:123456712345678:10
+12345671234567:1234561234567:10
+123456123456:12345123456:10
+1234512345:123412345:10
+1234567890999999999:1234567890:1000000000
+1234567890000000000:1234567890:1000000000
+1234567890999999999:9876543210:124999998
+1234567890000000000:9876543210:124999998
+96969696969696969696969696969678787878626262626262626262626262:484848484848484848484848486666666666666689898989898989898989:199
+# bug up to v0.35 in Calc (--$q one too many)
+84696969696969696956565656566184292929292929292847474747436308080808080808086765396464646464646465:13131313131313131313131313131394949494949494949494949494943535353535353535353535:6449999999999999999
+84696969696969696943434343434871161616161616161452525252486813131313131313143230042929292929292930:13131313131313131313131313131394949494949494949494949494943535353535353535353535:6449999999999999998
+84696969696969696969696969697497424242424242424242424242385803030303030303030300750000000000000000:13131313131313131313131313131394949494949494949494949494943535353535353535353535:6450000000000000000
+84696969696969696930303030303558030303030303030057575757537318181818181818199694689393939393939395:13131313131313131313131313131394949494949494949494949494943535353535353535353535:6449999999999999997
+&bmodinv
+# format: number:modulus:result
+# bmodinv Data errors
+abc:abc:NaN
+abc:5:NaN
+5:abc:NaN
+# bmodinv Expected Results from normal use
+1:5:1
+3:5:2
+-2:5:2
+8:5033:4404
+1234567891:13:6
+-1234567891:13:7
+324958749843759385732954874325984357439658735983745:2348249874968739:1741662881064902
+## bmodinv Error cases / useless use of function
+3:-5:NaN
+inf:5:NaN
+5:inf:NaN
+-inf:5:NaN
+5:-inf:NaN
+&bmodpow
+# format: number:exponent:modulus:result
+# bmodpow Data errors
+abc:abc:abc:NaN
+5:abc:abc:NaN
+abc:5:abc:NaN
+abc:abc:5:NaN
+5:5:abc:NaN
+5:abc:5:NaN
+abc:5:5:NaN
+# bmodpow Expected results
+0:0:2:1
+1:0:2:1
+0:0:1:0
+8:7:5032:3840
+8:-1:5033:4404
+98436739867439843769485798542749827593285729587325:43698764986460981048259837659386739857456983759328457:6943857329857295827698367:3104744730915914415259518
+# bmodpow Error cases
+8:8:-5:NaN
+8:-1:16:NaN
+inf:5:13:NaN
+5:inf:13:NaN
 &bmod
 # inf handling, see table in doc
 0:inf:0
@@ -1412,6 +1672,12 @@ abc:1:abc:NaN
 12345678912345:113:53
 1234567891234567:113:56
 123456789123456789:113:39
+# bug in bmod() not modifying the variable in place
+-629:5033:4404
+# bug in bmod() in Calc in the _div_use_div() shortcut code path,
+# when X == X and X was big 
+111111111111111111111111111111:111111111111111111111111111111:0
+12345678901234567890:12345678901234567890:0
 &bgcd
 abc:abc:NaN
 abc:+0:NaN
@@ -1625,7 +1891,7 @@ abc:NaN,NaN
 &bfac
 -1:NaN
 NaNfac:NaN
-+inf:NaN
++inf:inf
 -inf:NaN
 0:1
 1:1
@@ -1634,6 +1900,9 @@ NaNfac:NaN
 4:24
 5:120
 6:720
+7:5040
+8:40320
+9:362880
 10:3628800
 11:39916800
 12:479001600
@@ -1696,6 +1965,65 @@ abc:12:NaN
 10000000000000000:17
 -123:3
 215960156869840440586892398248:30
+&broot
+# sqrt()
++0:2:0
++1:2:1
+-1:2:NaN
+# -$x ** (1/2) => -$y, but not in froot()
+-123:2:NaN
++inf:2:inf
+-inf:2:NaN
+2:2:1
+-2:2:NaN
+4:2:2
+9:2:3
+16:2:4
+100:2:10
+123:2:11
+15241:2:123
+144:2:12
+12:2:3
+0.49:2:0
+0.0049:2:0
+# invalid ones
+1:NaN:NaN
+-1:NaN:NaN
+0:NaN:NaN
+-inf:NaN:NaN
++inf:NaN:NaN
+NaN:0:NaN
+NaN:2:NaN
+NaN:inf:NaN
+NaN:inf:NaN
+12:-inf:NaN
+12:inf:NaN
++0:0:NaN
++1:0:NaN
+-1:0:NaN
+-2:0:NaN
+-123.45:0:NaN
++inf:0:NaN
+12:1:12
+-12:1:NaN
+8:-1:NaN
+-8:-1:NaN
+# cubic root
+8:3:2
+-8:3:NaN
+# fourths root
+16:4:2
+81:4:3
+# 2 ** 64
+18446744073709551616:4:65536
+18446744073709551616:8:256
+18446744073709551616:16:16
+18446744073709551616:32:4
+18446744073709551616:64:2
+18446744073709551616:128:1
+# 213 ** 15
+84274086103068221283760416414557757:15:213
+# see t/bigroot for more tests
 &bsqrt
 145:12
 144:12
@@ -1715,12 +2043,16 @@ abc:12:NaN
 152399026:12345
 152399025:12345
 152399024:12344
+# 2 ** 64 => 2 ** 32
+18446744073709551616:4294967296
+84274086103068221283760416414557757:290299993288095377
 1:1
 0:0
 -2:NaN
 -123:NaN
 Nan:NaN
-+inf:NaN
++inf:inf
+-inf:NaN
 &bround
 $round_mode('trunc')
 0:12:0
@@ -1856,6 +2188,7 @@ NaNas_hex:NaN
 -0:0b0
 1:0b1
 0b1010111101010101010110110110110110101:0b1010111101010101010110110110110110101
+0x123456789123456789:0b100100011010001010110011110001001000100100011010001010110011110001001
 +inf:inf
 -inf:-inf
 NaNas_bin:NaN

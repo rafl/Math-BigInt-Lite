@@ -1,9 +1,12 @@
 
-Whats new in this version:
- * require MBI 1.57
- * bug in bfac()
- * export_ok objectify for Math::BigFloat with => 'Math::BigInt::Lite'
- * read access to {sign} as in Math::BigInt::Lite->new(12)->{sign} works now
+Whats new in v0.11:
+ * fix perl -Mbignum -le 'print 10->blog()' (did die with error) 
+ * added methods broot(), bmodpow() and bmodinv()
+ * streamlined overload code and some of the no-op operations
+ * tests from Math::BigInt v1.68
+ * fixed a bug in brsft() (used $x,$x instead of $x,$y)
+ * fixed is_one() to handle sign parameter
+ * tests for aliased of is_pos, is_neg, as_int 
 
 Please have arbitrarily big amounts of fun.
 

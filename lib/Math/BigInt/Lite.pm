@@ -1,24 +1,23 @@
-#!/usr/bin/perl -w
-
 # For speed and simplicity, Lite objects are a reference to a scalar. When
 # something more complex needs to happen (like +inf,-inf, NaN or rounding),
-# they will upgrade.
+# they will upgrade themselves to Math::BigInt.
 
 package Math::BigInt::Lite;
 
 require 5.005_03;
 use strict;
 
-use Exporter;
+require Exporter;
 use Math::BigInt;
 use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
-            $accuracy $precision $round_mode $div_scale);
+	    $accuracy $precision $round_mode $div_scale $_trap_inf
+	    $_trap_nan);
 
 @ISA = qw(Exporter Math::BigInt);
 @EXPORT_OK = qw/objectify/;
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 ##############################################################################
 # global constants, flags and accessory
@@ -85,6 +84,7 @@ BEGIN
   $MAX_MUL = int("1E$e");
 
  # print "MAX_NEW_LEN $MAX_NEW_LEN MAX_ADD $MAX_ADD MAX_MUL $MAX_MUL\n\n";
+
   }
 
 ##############################################################################
@@ -255,10 +255,8 @@ use overload
   },
 # fake HASH reference, so that Math::BigInt::Lite->new(123)->{sign} works
 '%{}' => sub {
-   my $self = shift;
-   my $sign = '+'; $sign = '-' if $self < 0;
-   return {
-     sign => $sign,
+     {
+     sign => ($_[0] < 0) ? '-' : '+',
      };
    },
  ;
@@ -309,10 +307,8 @@ sub blcm
 
 sub isa
   {
-  return 1 if $_[1] =~ /^Math::BigInt::Lite/;		# we aren't a BigInt
-							# nor BigRat/BigFloat
-  return 0;
-#  UNIVERSAL::isa(@_);
+  # we aren't a BigInt nor BigRat/BigFloat
+  $_[1] =~ /^Math::BigInt::Lite/ ? 1 : 0;
   }
 
 sub new
@@ -325,7 +321,7 @@ sub new
   if (!ref($wanted))
     {
     if ((length($wanted) <= $MAX_NEW_LEN) && 
-        ($wanted =~ /^[+-]?[0-9]{1,$MAX_NEW_LEN}(\.0*)?$/))
+        ($wanted =~ /^[+-]?[0-9]{1,$MAX_NEW_LEN}(\.0*)?\z/))
       {
       my $a = \($wanted+0);	# +0 to make a copy and force it numeric
       return bless $a, $class;
@@ -364,10 +360,6 @@ sub bnorm
   # no-op
   my $x = ref($_[0]) ? $_[0] : $_[0]->new($_[1]);
 
-#  # zap "-0" (TODO find a way to avoid this)
-#  print "bnorm l $$x\n" if ref($x) eq $class;
-#  print "bnorm b $x\n" if ref($x) ne $class;
-#  $$x = 0 if $x->isa($class) && $$x eq '-0';	
   $x;
   }
 
@@ -520,10 +512,9 @@ sub bone
   # return a one
   my $x = shift;
  
-  my $sign = '+'; $sign = '-' if ($_[0] ||'') eq '-';
-  return $x->new($sign.'1') unless ref $x;		# Class->bone();
-  $$x = 1;
-  $$x = -1 if $sign eq '-';
+  my $num = ($_[0] || '') eq '-' ? -1 : 1;
+  return $x->new($num) unless ref $x;		# Class->bone();
+  $$x = $num;
   $x;
   }
 
@@ -533,7 +524,7 @@ sub bzero
   my $x = shift;
 
   return $x->new(0) unless ref $x;		# Class->bone();
-  #return $x->bzero() unless $x->isa($class);	# should not happen
+#  return $x->bzero(@_) unless $x->isa($class);	# should not happen
   $$x = 0;
   $x;
   }
@@ -645,45 +636,50 @@ sub bdec
 sub brsft
   {
   # shift right 
-  my ($x,$y,$b,$a,$p,$r) = @_; #objectify(2,@_);
+  my ($self,$x,$y,$b,@r) = objectify(2,@_);
 
   $x = $class->new($x) unless ref($x);
-  $y = $class->new($x) unless ref($y);
-  
-  return $x->brsft($y,$b,$a,$p,$r) unless $x->isa($class);
-  return $upgrade->new($$x)->brsft($y,$b,$a,$p,$r)
+  $y = $class->new($y) unless ref($y);
+  $b = $$b if ref $b && $b->isa($class);
+ 
+  if (!$x->isa($class))
+    {
+    $y = $upgrade->new($$y) if $y->isa($class);
+    return $x->brsft($y,$b,@r);
+    }
+  return $upgrade->new($$x)->brsft($y,$b,@r)
    unless $y->isa($class);
-  
+
   $b = 2 if !defined $b;  
   # can't do this
-  return $upgrade->new($$x)->brsft($upgrade->new($$y),$b,$a,$p,$r)
+  return $upgrade->new($$x)->brsft($upgrade->new($$y),$b,@r)
    if $b != 2 || $$y < 0;
   use integer;
-  $$x = $$x >> $$y;	# base 2 for now
+  $$x >>= $$y;		# only base 2 for now
   $x;
   }
 
 sub blsft
   {
   # shift left 
-  my ($x,$y,$b,$a,$p,$r) = @_; #objectify(2,@_);
+  my ($self,$x,$y,$b,@r) = objectify(2,@_);
 
   $x = $class->new($x) unless ref($x);
   $y = $class->new($x) unless ref($y);
 
-  return $x->blsft($upgrade->new($$y),$b,$a,$p,$r) unless $x->isa($class);
-  return $upgrade->new($$x)->blsft($y,$b,$a,$p,$r)
+  return $x->blsft($upgrade->new($$y),$b,@r) unless $x->isa($class);
+  return $upgrade->new($$x)->blsft($y,$b,@r)
    unless $y->isa($class);
 
   # overflow: can't do this
-  return $upgrade->new($$x)->blsft($upgrade->new($$y),$b,$a,$p,$r)
+  return $upgrade->new($$x)->blsft($upgrade->new($$y),$b,@r)
    if $$y > 31;
   $b = 2 if !defined $b;  
   # can't do this
-  return $upgrade->new($$x)->blsft($upgrade->new($$y),$b,$a,$p,$r)
+  return $upgrade->new($$x)->blsft($upgrade->new($$y),$b,@r)
    if $b != 2 || $$y < 0;
   use integer;
-  $$x = $$x << $$y;	# base 2 for now
+  $$x <<= $$y;		# only base 2 for now
   $x;
   }
 
@@ -839,7 +835,7 @@ sub is_zero
   # return true if arg (BLite or num_str) is zero
   my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
 
-  return ($$x == 0) <=> 0if $x->isa($class);
+  return ($$x == 0) <=> 0 if $x->isa($class);
   $x->is_zero();
   }
 
@@ -864,9 +860,10 @@ sub is_negative
 sub is_one
   {
   # return true if arg (BLite or num_str) is one
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($self,$x,$s) = ref($_[0]) ? (ref($_[0]),@_) : objectify(1,@_);
 
-  return ($$x == 1) <=> 0 if $x->isa($class);
+  my $one = 1; $one = -1 if ($s || '+') eq '-';
+  return ($$x == $one) <=> 0 if $x->isa($class);
   $x->is_one();
   }
 
@@ -956,7 +953,7 @@ sub length
 
 sub babs
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($self,$x) = ref($_[0]) ? (undef,$_[0]) : objectify(1,@_);
 
   $$x = abs($$x);
   $x;
@@ -964,7 +961,7 @@ sub babs
 
 sub bneg
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($self,$x) = ref($_[0]) ? (undef,$_[0]) : objectify(1,@_);
 
   $$x = -$$x if $$x != 0;
   $x;
@@ -972,7 +969,7 @@ sub bneg
 
 sub bnot
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($self,$x) = ref($_[0]) ? (undef,$_[0]) : objectify(1,@_);
 
   $$x = -$$x - 1;
   $x;
@@ -983,13 +980,13 @@ sub bnot
 
 sub bceil
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($self,$x) = ref($_[0]) ? (undef,$_[0]) : objectify(1,@_);
   $x;		# no-op
   }
 
 sub bfloor
   {
-  my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
+  my ($self,$x) = ref($_[0]) ? (undef,$_[0]) : objectify(1,@_);
   $x;		# no-op
   }
 
@@ -1017,9 +1014,39 @@ sub blog
   my ($self,$x,$base,$a,$p,$r) = objectify(2,@_);
 
   $x = $upgrade->new($$x) if $x->isa($class);
-  $base = $upgrade->new($$base) if $base->isa($class);
+  $base = $upgrade->new($$base) if defined $base && $base->isa($class);
 
   $x->blog($base,$a,$p,$r);
+  }
+
+sub broot
+  {
+  my ($self,$x,$base,@r) = objectify(2,@_);
+
+  $x = $upgrade->new($$x) if $x->isa($class);
+  $base = $upgrade->new($$base) if defined $base && $base->isa($class);
+
+  $x->broot($base,@r);
+  }
+
+sub bmodpow
+  {
+  my ($self,$x,$y,@r) = objectify(2,@_);
+
+  $x = $upgrade->new($$x) if $x->isa($class);
+  $y = $upgrade->new($$y) if defined $y && $y->isa($class);
+
+  $x->bmodpow($y,@r);
+  }
+
+sub bmodinv
+  {
+  my ($self,$x,$y,@r) = objectify(2,@_);
+
+  $x = $upgrade->new($$x) if $x->isa($class);
+  $y = $upgrade->new($$y) if defined $y && $y->isa($class);
+
+  $x->bmodinv($y,@r);
   }
 
 sub bsqrt
@@ -1041,7 +1068,6 @@ sub bsqrt
   }
 
 ##############################################################################
-# bgcd/blcm
 
 sub import
   {
@@ -1070,13 +1096,6 @@ sub import
       my $s = 2; $s = 1 if @a-$j < 2;   # no "can not modify non-existant..."
       splice @a, $j, $s; $j -= $s;
       }
-    # hand this up to Math::BigInt
-#    elsif ($_[$i] =~ /^lib$/i)
-#      {
-#      # this causes a different low lib to take care...
-#      $CALC = $_[$i+1] || '';
-#      my $s = 2; $s = 1 if @a-$j < 2;   # avoid "can not modify non-existant..."      splice @a, $j, $s; $j -= $s;
-#      }
     }
   # any non :constant stuff is handled by our parent, Math::BigInt or Exporter
   # even if @_ is empty, to give it a chance
@@ -1090,7 +1109,7 @@ __END__
 
 =head1 NAME
 
-Math::BigInt::Lite - What BigInt's are before they become big
+Math::BigInt::Lite - What BigInts are before they become big
 
 =head1 SYNOPSIS
 
@@ -1219,7 +1238,10 @@ But B<examples #3 and #4 are recommended> for usage.
 	$x = Math::BigInt::Lite->new('1');
 
 Create a new Math::BigInt:Lite object. When the input is not of an suitable
-simple and small form, a C<$upgrade> object will be returned.
+simple and small form, an object of the class of C<$upgrade> (typically
+Math::BigInt) will be returned.
+
+All other methods from BigInt and BigFloat should work as expected.
 
 =head1 BUGS
 
@@ -1233,12 +1255,12 @@ the same terms as Perl itself.
 =head1 SEE ALSO
 
 L<Math::BigFloat> and L<Math::Big> as well as L<Math::BigInt::BitVect>,
-L<Math::BigInt::Pari> and  L<Math::BigInt::GMP>.
+L<Math::BigInt::Pari> and L<Math::BigInt::GMP>.
 
 The L<bignum|bignum> module.
 
 =head1 AUTHORS
 
-(C) by Tels L<http://bloodgate.com/> 2002. 
+(C) by Tels L<http://bloodgate.com/> 2002-2004. 
 
 =cut

@@ -8,18 +8,30 @@ BEGIN
   $| = 1;
   chdir 't' if -d 't';
   unshift @INC, '../lib'; # for running manually
-  plan tests => 2;
+  plan tests => 14;
   }
 
 use Math::BigFloat with => 'Math::BigInt::Lite';
+use Math::BigRat with => 'Math::BigInt::Lite';
 
 my $x = Math::BigFloat->new(-123);
+ok ($x,-123); $x->babs(); ok ($x,123);
+ok ($x->is_odd(),1);
 
-ok ($x,-123);
+$x = Math::BigRat->new(-123);
+ok ($x,-123); $x->babs(); ok ($x,123);
+ok ($x->is_odd(),1);
+$x = Math::BigRat->new('5/7');
+ok ($x,'5/7');
 
-$x->babs();
+$x = Math::BigRat->new(Math::BigInt::Lite->new(123));
+ok ($x,123); $x->bneg(); ok ($x,-123);
+ok ($x->is_odd(),1);
+ok ($x->is_one()||0,0);
 
-ok ($x,123);
+$x = Math::BigRat->new(Math::BigInt::Lite->new(-123));
+ok ($x,-123); $x->babs(); ok ($x,123);
+ok ($x->is_odd(),1);
 
 # done
 

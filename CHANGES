@@ -42,6 +42,13 @@ Math::BigLite:
  * fake HASH read accesses to sign (Math::BigInt::Lite->new(12)->{sign} works)
    (Thanx to Benjamin Goldstein for the trick!)
  * test that Math::BigFloat with Math::BigInt::Lite really works
+2004-01-06 v0.11 Tels (2879 tests)
+ * fix perl -Mbignum -le 'print 10->blog()' (did die with error)
+ * added method broot(), bmodpow() and bmodinv()
+ * streamlined overload code and some of the no-op operations
+ * tests from Math::BigInt v1.68
+ * fixed a bug in brsft() (used $x,$x instead of $x,$y)
+ * fixed is_one() to handle sign parameter
 
 Please send me test-reports, your experiences with this and your ideas - I love
 to hear about my work!

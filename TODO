@@ -1,8 +1,8 @@
-See also various .pm files.
 
 * things like 'unless $x->isa($class);' should be 'ref $x eq $class' for speed
 * better (dynamic BASE calc) overflow detection
 * streamlining
+* the overload shortcuts (+= etc) could be optimized
 
 Please send me test-reports, your experiences with this and your ideas - I love
 to hear about my work!

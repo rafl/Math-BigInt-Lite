@@ -8,7 +8,7 @@ BEGIN
   $| = 1;
   chdir 't' if -d 't';
   unshift @INC, '../lib'; # for running manually
-  plan tests => 97;
+  plan tests => 99;
   }
 
 use Math::BigInt::Lite;
@@ -35,6 +35,7 @@ $x = $c->new('1.'); 	ok (ref($x),$c);	ok ($x,1);
 $x = $c->new('1.0'); 	ok (ref($x),$c);	ok ($x,1);
 $x = $c->new('1.00'); 	ok (ref($x),$c);	ok ($x,1);
 $x = $c->new('1.02'); 	ok (ref($x),$mbi);	ok ($x,'NaN');
+$x = $c->new('-0'); 	ok (ref($x),$c);	ok ($x,'0');
 
 $x = $c->new('1'); 	ok (ref($x),$c); $y = $x->copy(); ok (ref($y),$c);
 ok ($x,$y);

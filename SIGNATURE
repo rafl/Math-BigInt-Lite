@@ -1,0 +1,44 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.36.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It would check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+SHA1 cc987334f3f87af2cc3afd21d83c50d498c8bb9d BUGS
+SHA1 0a8e9183550a03e537e91388b5771ae1e875f4a4 CHANGES
+SHA1 ad67bb4cee91dd334ac38150e567be60f3a2d270 INSTALL
+SHA1 d6a6c30ee6d9ba6b9afab8bbf6a25e1b23c744e0 LICENSE
+SHA1 6e8ef4c7c35b4ad7ed17b3f7d858fd7c9c6d670a MANIFEST
+SHA1 8673e90d58c11692bbfbfa8c6a256bc6d4ad7a08 META.yml
+SHA1 7bfdcc3b81a7d30c55828b24eefed38abaa848ee Makefile.PL
+SHA1 9e55c831562dee9b79eb25ea2510d2c859d55d1c NEW
+SHA1 2f914787cdb07f5baea6f3d06a4e1a7be9f742c5 README
+SHA1 7e905412a31aee0b0072636b4e501648fcdb22c6 TODO
+SHA1 52ef6ad309eed9c84bd2787a31abd4c0817982ae lib/Math/BigInt/Lite.pm
+SHA1 044b3ca975223ce95edc572af395bcb298b010e6 t/alias.inc
+SHA1 24a9b7395ffc8f73873813c7732fb5711d45f30f t/bigintpm.inc
+SHA1 191ca6f5d50eb767420168af79e516f0b291cb33 t/bigintpm.t
+SHA1 eb2da111dc45089404595308292b4d03b7c71b33 t/lite.t
+SHA1 50b1b36e47edcd2e10325a9438cad98bdb9e212f t/mbi_ali.t
+SHA1 f5b5ea067823aacf96a9541121916b2e0822e889 t/with.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2-rc1-SuSE (GNU/Linux)
+Comment: When cryptography is outlawed, bayl bhgynjf jvyy unir cevinpl.
+
+iQEVAwUBP/sAXHcLPEOTuEwVAQEG4Qf/QOgMwIH9+DNW91rYP5I+2YSfIpgUfsyN
+CrHt2u0BCT3U/K+zmy52H9oN/fgpm+t2O9qZE36u6OFgTFbFFZ6b5jSB2/92jxm3
+7MUzISWn3cTtjTQysQyeA+uMui52NpCpfN2Sk1rHX8TchKBnB1WXhFLTGcxc06+a
+AAFguYRFLZeKXiUsx5KpjEn96ulpdExkcGoFECtOurP5bfWG7IYGBS7L6uXhzyz2
+qMiHoWkMmeo/CoaoXAzrQge5H+guAigN47hunrEoLWEk/+J31eS8VLRi3uATmdRG
+ITnvgLaI7dlEh4OG+jvkr6pkAQKHP17oxZhliJ4KEssjmNdOdR+DFw==
+=0V2H
+-----END PGP SIGNATURE-----

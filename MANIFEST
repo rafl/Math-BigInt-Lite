@@ -1,14 +1,18 @@
+BUGS
 CHANGES
 INSTALL
-README
 LICENSE
 MANIFEST
 NEW
+README
 TODO
-BUGS
+SIGNATURE
 Makefile.PL
 lib/Math/BigInt/Lite.pm
+t/alias.inc
+t/mbi_ali.t
 t/lite.t
 t/with.t
 t/bigintpm.t
 t/bigintpm.inc
+META.yml                                 Module meta-data (added by MakeMaker)

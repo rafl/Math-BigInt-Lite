@@ -5,7 +5,8 @@ WriteMakefile(
     'NAME'		=> 'Math-BigInt-Lite',
     'VERSION_FROM'	=> 'lib/Math/BigInt/Lite.pm', # finds $VERSION
     'PREREQ_PM'		=> {
-			   Math::BigInt => 1.57,
+			   Math::BigInt => 1.68,
+			   Math::BigRat => 0.10,
 			   }, # e.g., Module::Name => 1.1
     'LIBS'		=> [''], # e.g., '-lm'
     'DEFINE'		=> '', # e.g., '-DHAVE_SOMETHING'
