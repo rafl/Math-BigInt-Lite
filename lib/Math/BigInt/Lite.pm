@@ -17,7 +17,7 @@ use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
 @ISA = qw(Exporter Math::BigInt);
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 ##############################################################################
 # global constants, flags and accessory
@@ -259,6 +259,13 @@ BEGIN
   *objectify = \&Math::BigInt::objectify;
   }
 
+sub config
+  {
+  my $cfg = Math::BigInt->config();
+  $cfg->{version_lite} = $VERSION;
+  $cfg;
+  }
+
 sub bgcd
   {
   if (@_ == 1)		# bgcd (8) == bgcd(8,0) == 8
@@ -303,7 +310,6 @@ sub new
 
   return $upgrade->new($wanted) if !defined $wanted;
 
-  print "new\n";
   # 1e12, NaN, inf, 0x12, 0b11, 1.2e2, "12345678901234567890" etc all upgrade 
   if (!ref($wanted))
     {
@@ -382,7 +388,6 @@ sub _upgrade_2
     $x = $upgrade->new($$x) if $x->isa($class);
     $y = $upgrade->new($$y) if $y->isa($class);
     }
-  print "upgrade ",($up,$x,$y),"\n";
 
   ($up,$x,$y,$a,$p,$r);
   }

@@ -30,6 +30,8 @@ Math::BigLite:
  * stray new() calls to $class->new()
  * routines now use _upgrade_x() to check params and overflow
  * round() works now
+2002-03-23 v0.08 Tels
+ * config() was missing
 
 Please send me test-reports, your experiences with this and your ideas - I love
 to hear about my work!

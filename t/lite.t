@@ -8,7 +8,7 @@ BEGIN
   $| = 1;
   chdir 't' if -d 't';
   unshift @INC, '../lib'; # for running manually
-  plan tests => 89;
+  plan tests => 91;
   }
 
 # testing of Math::BigRat
@@ -17,6 +17,9 @@ use Math::BigInt::Lite;
 
 my $c = 'Math::BigInt::Lite';
 my $mbi = 'Math::BigInt';
+
+ok (Math::BigInt::Lite->config()->{version},$Math::BigInt::VERSION);
+ok (Math::BigInt::Lite->config()->{version_lite},$Math::BigInt::Lite::VERSION);
 
 my ($x,$y,$z);
 

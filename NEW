@@ -1,13 +1,6 @@
 
 Whats new in this version:
- * bmod/bdiv use _upgrade_2 and return now more often Lite instead of BigInt
- * as_number() returns always BigInt
- * fixed bone() etc (were returning always BigInt and/or failing)
- * autodetec how big Lite objects can be (fixes overflow)
- * added _upgrade_2_mul() 
- * perl-Mbignum now works under Lite
- * new() can handle 1e10 style strings
- * better overload code for +, ++, --,
+ * config() was missing (has now additional version_lite entry and 2 tests)
 
 Please have arbitrarily big amounts of fun.
 
