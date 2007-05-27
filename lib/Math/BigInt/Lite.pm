@@ -4,7 +4,7 @@
 
 package Math::BigInt::Lite;
 
-require 5.005_03;
+require 5.006002;
 use strict;
 
 require Exporter;
@@ -13,11 +13,11 @@ use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
 	    $accuracy $precision $round_mode $div_scale $_trap_inf
 	    $_trap_nan);
 
-@ISA = qw(Exporter Math::BigInt);
+@ISA = qw(Math::BigInt);
 @EXPORT_OK = qw/objectify/;
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 ##############################################################################
 # global constants, flags and accessory
@@ -101,7 +101,7 @@ sub round_mode
     {
     my $m = shift;
     die "Unknown round mode $m"
-     if $m !~ /^(even|odd|\+inf|\-inf|zero|trunc)$/;
+     if $m !~ /^(even|odd|\+inf|\-inf|zero|trunc|common)$/;
     # set in BigInt, too
     Math::BigInt->round_mode($m);
     return ${"${class}::round_mode"} = $m;
@@ -844,7 +844,7 @@ sub is_positive
   # return true if arg (BLite or num_str) is positive
   my ($self,$x) = ref($_[0]) ? (ref($_[0]),$_[0]) : objectify(1,@_);
 
-  return ($$x >= 0) <=> 0 if $x->isa($class);
+  return ($$x > 0) <=> 0 if $x->isa($class);
   $x->is_positive();
   }
 
@@ -1001,22 +1001,41 @@ sub bfac
 
 sub bpow
   {
-  my ($self,$x,$y,$a,$p,$r) = objectify(2,@_);
+  my ($self,$x,$y,@r) = objectify(2,@_);
 
   $x = $upgrade->new($$x) if $x->isa($class);
   $y = $upgrade->new($$y) if $y->isa($class);
 
-  $x->bpow($y,$a,$p,$r);
+  $x->bpow($y,@r);
   }
 
 sub blog
   {
-  my ($self,$x,$base,$a,$p,$r) = objectify(2,@_);
+  my ($self,$x,$base,@r) = objectify(2,@_);
 
   $x = $upgrade->new($$x) if $x->isa($class);
   $base = $upgrade->new($$base) if defined $base && $base->isa($class);
 
-  $x->blog($base,$a,$p,$r);
+  $x->blog($base,@r);
+  }
+
+sub bexp
+  {
+  my ($self,$x,@r) = objectify(2,@_);
+
+  $x = $upgrade->new($$x) if $x->isa($class);
+
+  $x->bexp(@r);
+  }
+
+sub bnok
+  {
+  my ($self,$x,$y,@r) = objectify(2,@_);
+
+  $x = $upgrade->new($$x) if $x->isa($class);
+  $y = $upgrade->new($$y) if $y->isa($class);
+
+  $x->bnok($y,@r);
   }
 
 sub broot
@@ -1051,10 +1070,10 @@ sub bmodinv
 
 sub bsqrt
   {
-  my ($self,$x,$a,$p,$r) = ref($_[0]) ? (ref($_[0]),@_) :
+  my ($self,$x,@r) = ref($_[0]) ? (ref($_[0]),@_) :
     ($class,$class->new($_[0]),$_[1],$_[2],$_[3]);
 
-  return $x->bsqrt($a,$p,$r) unless $x->isa($class);
+  return $x->bsqrt(@r) unless $x->isa($class);
  
   return $upgrade->new($$x)->bsqrt() if $$x < 0;	# NaN
   my $s = sqrt($$x);
@@ -1126,13 +1145,18 @@ Math::BigInt::Lite - What BigInts are before they become big
 
 Math::BigInt is not very good suited to work with small (read: typical
 less than 10 digits) numbers, since it has a quite high per-operation overhead
-and is thus too slow.
+and is thus much slower than normal Perl for operations like:
 
-But for some simple applications, you don't need rounding, infinity nor NaN
-handling, and yet want fast speed for small numbers without the risk of
-overflowing.
+	my $x = 1 + 2;				# fast and correct
+	my $x = 2 ** 256;			# fast, but wrong
 
-This is were Math::BigInt::Lite comes into play.
+	my $x = Math::BigInt->new(1) + 2;	# slow, but correct
+	my $x = Math::BigInt->new(2) ** 256;	# slow, and still correct
+
+But for some applications, you want fast speed for small numbers without
+the risk of overflowing.
+
+This is were C<Math::BigInt::Lite> comes into play.
 
 Math::BigInt::Lite objects should behave in every way like Math::BigInt
 objects, that is apart from the different label, you should not be able
@@ -1151,18 +1175,14 @@ Math::BigInt::Calc. This is equivalent to saying:
 
 You can change this by using:
 
-	use Math::BigInt::Lite lib => 'BitVect';
+	use Math::BigInt::Lite lib => 'GMP';
 
 The following would first try to find Math::BigInt::Foo, then
 Math::BigInt::Bar, and when this also fails, revert to Math::BigInt::Calc:
 
 	use Math::BigInt::Lite lib => 'Foo,Math::BigInt::Bar';
 
-Calc.pm uses as internal format an array of elements of some decimal base
-(usually 1e7, but this might be differen for some systems) with the least
-significant digit first, while BitVect.pm uses a bit vector of base 2, most
-significant bit first. Other modules might use even different means of
-representing the numbers. See the respective module documentation for further
+See the respective low-level math library documentation for further
 details.
 
 Please note that Math::BigInt::Lite does B<not> use the denoted library itself,
@@ -1180,56 +1200,8 @@ Use the lib, Luke!
 
 =head2 Using Lite as substitute for Math::BigInt
 
-While Lite is fine when used directly in a script, you also want to make
-other modules such as Math::BigFloat or Math::BigRat using it. Here is how
-(you need a fairly recent version of the aforementioned modules to get this
-to work!):
-
-	# 1
-        use Math::BigFloat with => 'Math::BigInt::Lite';
-
-There is no need to "use Math::BigInt" or "use Math::BigInt::Lite", but you
-can combine these if you want. For instance, you may want to use
-Math::BigInt objects in your main script, too.
-
-	# 2
-	use Math::BigInt;
-	use Math::BigFloat with => 'Math::BigInt::Lite';
-
-Of course, you can combine this with the C<lib> parameter.
-
-	# 3
-	use Math::BigFloat with => 'Math::BigInt::Lite', lib => 'GMP,Pari';
-
-If you want to use Math::BigInt's, too, simple add a Math::BigInt B<before>:
-
-	# 4
-	use Math::BigInt;
-	use Math::BigFloat with => 'Math::BigInt::Lite', lib => 'GMP,Pari';
-
-Notice that the module with the last C<lib> will "win" and thus
-it's lib will be used if the lib is available:
-
-	# 5
-	use Math::BigInt lib => 'Bar,Baz';
-	use Math::BigFloat with => 'Math::BigInt::Lite', lib => 'Foo';
-
-That would try to load Foo, Bar, Baz and Calc (in that order). Or in other
-words, Math::BigFloat will try to retain previously loaded libs when you
-don't specify it one. 
-
-Actually, the lib loading order would be "Bar,Baz,Calc", and then
-"Foo,Bar,Baz,Calc", but independend of which lib exists, the result is the
-same as trying the latter load alone, except for the fact that Bar or Baz
-might be loaded needlessly in an intermidiate step
-
-The old way still works though:
-
-	# 6
-        use Math::BigInt lib => 'Bar,Baz';
-        use Math::BigFloat;
- 
-But B<examples #3 and #4 are recommended> for usage.
+The pragmas L<bigrat>, L<bignum> and L<bigint> will automatically use
+Math::BigInt::Lite whenever possible.
 
 =head1 METHODS
 
@@ -1254,13 +1226,13 @@ the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<Math::BigFloat> and L<Math::Big> as well as L<Math::BigInt::BitVect>,
+L<Math::BigFloat> and L<Math::Big> as well as
 L<Math::BigInt::Pari> and L<Math::BigInt::GMP>.
 
 The L<bignum|bignum> module.
 
 =head1 AUTHORS
 
-(C) by Tels L<http://bloodgate.com/> 2002-2004. 
+(C) by Tels L<http://bloodgate.com/> 2002-2007. 
 
 =cut

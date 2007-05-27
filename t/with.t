@@ -11,6 +11,9 @@ BEGIN
   plan tests => 14;
   }
 
+use Math::BigInt::Lite;
+
+# the "with" parameter is now ignored by these modules
 use Math::BigFloat with => 'Math::BigInt::Lite';
 use Math::BigRat with => 'Math::BigInt::Lite';
 

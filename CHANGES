@@ -2,8 +2,22 @@
 Complete version history
 ========================
 
+2007-05-27 v0.12 Tels (3194 tests)
+ * add round-mode "common"
+ * add support for bexp() and bnok()
+ * tests from Math::BigInt v1.86
+ * require Math::BigInt v1.86
+ * require Math::BigRat v0.19
+ * bundle and use Module::Install
+ * add POD tests
+
+Please send me test-reports, your experiences with this and your ideas - I love
+to hear about my work!
+
+Tels <http://bloodgate.com/>
+
 ############################################################################## 
-Math::BigLite:
+Older revision history:
 
 2002-03-05 v0.01 Tels
  * first release

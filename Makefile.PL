@@ -1,14 +1,30 @@
-use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
-WriteMakefile(
-    'NAME'		=> 'Math-BigInt-Lite',
-    'VERSION_FROM'	=> 'lib/Math/BigInt/Lite.pm', # finds $VERSION
-    'PREREQ_PM'		=> {
-			   Math::BigInt => 1.68,
-			   Math::BigRat => 0.10,
-			   }, # e.g., Module::Name => 1.1
-    'LIBS'		=> [''], # e.g., '-lm'
-    'DEFINE'		=> '', # e.g., '-DHAVE_SOMETHING'
-    'INC'		=> '', # e.g., '-I/usr/include/other'
-);
+
+# We need at least Perl 5.6.2
+require 5.6.2;
+use strict;
+
+# Load the Module::Install bundled in ./inc/
+use inc::Module::Install;
+
+# The name of your distribution
+name		'Math-BigInt-Lite';
+
+# Get most of the details from the primary module
+all_from	'lib/Math/BigInt/Lite.pm';
+
+requires	'perl'		=> 5.006002;
+requires	'Math::BigInt'	=> 1.86;
+requires	'Math::BigRat'	=> 0.19;
+
+build_requires	'Test::More'	=> 0.52;
+
+license		'perl';
+
+author		'Tels <nospam-abuse@bloodgate.com>';
+
+# Do not index these
+no_index	directory	=> 'examples';
+
+# Generate the Makefile
+WriteAll;
+

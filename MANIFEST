@@ -1,18 +1,29 @@
 BUGS
 CHANGES
+inc/Module/Install.pm
+inc/Module/Install/Base.pm
+inc/Module/Install/Can.pm
+inc/Module/Install/Fetch.pm
+inc/Module/Install/Makefile.pm
+inc/Module/Install/Metadata.pm
+inc/Module/Install/Win32.pm
+inc/Module/Install/WriteAll.pm
 INSTALL
+lib/Math/BigInt/Lite.pm
 LICENSE
+Makefile.PL
 MANIFEST
+MANIFEST.SKIP
+META.yml			Module meta-data (added by MakeMaker)
 NEW
 README
-TODO
 SIGNATURE
-Makefile.PL
-lib/Math/BigInt/Lite.pm
 t/alias.inc
-t/mbi_ali.t
-t/lite.t
-t/with.t
-t/bigintpm.t
 t/bigintpm.inc
-META.yml                                 Module meta-data (added by MakeMaker)
+t/bigintpm.t
+t/lite.t
+t/mbi_ali.t
+t/pod.t
+t/pod_cov.t
+t/with.t
+TODO
