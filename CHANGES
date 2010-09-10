@@ -2,6 +2,9 @@
 Complete version history
 ========================
 
+2010-09-10 v0.13 rafl (3200 tests)
+ * Fix tests with Math::BigInt >= 1.90 and depend on it.
+
 2007-05-27 v0.12 Tels (3194 tests)
  * add round-mode "common"
  * add support for bexp() and bnok()
@@ -16,7 +19,7 @@ to hear about my work!
 
 Tels <http://bloodgate.com/>
 
-############################################################################## 
+##############################################################################
 Older revision history:
 
 2002-03-05 v0.01 Tels

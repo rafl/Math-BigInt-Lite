@@ -17,7 +17,7 @@ use vars qw($VERSION @ISA $PACKAGE @EXPORT_OK $upgrade $downgrade
 @EXPORT_OK = qw/objectify/;
 my $class = 'Math::BigInt::Lite';
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 ##############################################################################
 # global constants, flags and accessory
