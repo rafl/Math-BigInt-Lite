@@ -2,6 +2,10 @@
 Complete version history
 ========================
 
+2010-09-14 v0.14 rafl (3202 tests)
+ * Add a test for a blog() failure caused by a Math::BigInt bug
+ * Depend on Math::BigInt 1.94 to fix the above failure
+
 2010-09-10 v0.13 rafl (3200 tests)
  * Fix tests with Math::BigInt >= 1.90 and depend on it.
 
