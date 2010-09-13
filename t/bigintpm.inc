@@ -757,6 +757,7 @@ inf:inf:NaN
 100000:10:5
 1000000:10:6
 10000000:10:7
+100000000:10:8
 4096:2:12
 # these tests do not work since BigInt can't deal with Lite objects
 #100000000:10:8
